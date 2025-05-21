@@ -1,0 +1,39 @@
+/* Estilos personalizados para MEP-Projects */
+
+/* Variables de color */
+:root {
+    --mep-primary: green;
+    --mep-secondary: #05B32B;
+    --mep-accent: #22c55e;
+    --mep-dark: #1f2937;
+    --mep-light: #f9fafb;
+}
+
+/* Transiciones suaves */
+.transition-all {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Hover effects */
+.hover-shadow:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Scroll styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c5c5c5;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}

@@ -1,7 +1,4 @@
-<?php
-$title = "Dashboard";
-ob_start();
-?>
+
 
 <div class="p-6">
     <!-- Welcome and Search -->
@@ -322,7 +319,3 @@ ob_start();
     </div>
 </div>
 
-<?php
-$content = ob_get_clean();
-include_once 'views/layout.php';
-?>

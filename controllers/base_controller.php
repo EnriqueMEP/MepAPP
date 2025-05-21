@@ -1,114 +1,94 @@
 <?php
 // controllers/base_controller.php
+
+// Cargar configuración general de la app
+require_once __DIR__ . '/../config/app.php';
+
 class BaseController {
     protected $db;
     protected $user;
-    
+
     public function __construct() {
-        // Iniciar sesión solo si no está ya iniciada
-        if (session_status() == PHP_SESSION_NONE) {
+        // Iniciar sesión sólo si no está activa
+        if (session_status() === PHP_SESSION_NONE) {
             session_start();
         }
-        
+
         // Conectar a la base de datos
-        require_once 'config/database.php';
+        require_once __DIR__ . '/../config/database.php';
         $database = new Database();
         $this->db = $database->getConnection();
-        
+
         // Cargar modelo de usuario si hay sesión
         if (isset($_SESSION['user_id'])) {
-            require_once 'models/user.php';
+            require_once __DIR__ . '/../models/user.php';
             $this->user = new User($this->db);
             $this->user->id = $_SESSION['user_id'];
             $this->user->read_single();
         }
     }
-    
-    // Verificar permisos
+
+    /**
+     * Verificar permisos de usuario para un módulo/acción
+     */
     protected function requirePermission($module, $permission_type = 'read') {
-        if (!isset($_SESSION['user_id'])) {
-            header('Location: index.php?controller=auth&action=login');
+        if (empty($_SESSION['user_id'])) {
+            header('Location: ' . BASE_URL . 'index.php?controller=auth&action=login');
             exit;
         }
-        
+
         if (!$this->user->hasPermission($module, $permission_type)) {
-            include_once 'views/403.php';
+            include_once __DIR__ . '/../views/403.php';
             exit;
         }
     }
-    
-    // Renderizar vistas con layout
+
+    /**
+     * Renderizar una vista dentro de un layout
+     * @param string $view   Ruta relativa a views, sin .php (e.g. 'dashboard/index')
+     * @param array  $data   Variables a extraer para la vista
+     * @param string $layout Nombre de layout (archivo en views/, sin extensión)
+     */
     protected function render($view, $data = [], $layout = 'layout') {
         try {
-            // Extraer datos para hacerlos disponibles en la vista
+            // Extraer datos como variables para la vista
             extract($data);
-            
-            // Iniciar buffer de salida
+
+            // Generar contenido de la vista
             ob_start();
-            
-            // Incluir la vista
-            include_once "views/{$view}.php";
-            
-            // Obtener contenido del buffer
+            include_once __DIR__ . "/../views/{$view}.php";
             $content = ob_get_clean();
-            
-            // Obtener contador de mensajes no leídos si el usuario está autenticado
+
+            // Notificaciones y contador de mensajes no leídos
             $unread_count = 0;
             $notifications = [];
-            
-            if (isset($_SESSION['user_id'])) {
+
+            if (isset($_SESSION['user_id']) && file_exists(__DIR__ . '/../models/message.php')) {
+                require_once __DIR__ . '/../models/message.php';
+                $messageModel = new Message($this->db);
+
                 try {
-                    // Verificar si existe el modelo de mensajes
-                    if (file_exists('models/message.php')) {
-                        require_once 'models/message.php';
-                        $message_model = new Message($this->db);
-                        
-                        // Verificar con una consulta simple si la tabla existe
-                        try {
-                            $check_table = "SHOW TABLES LIKE 'messages'";
-                            $table_result = $this->db->query($check_table);
-                            
-                            if ($table_result->rowCount() > 0) {
-                                // La tabla existe, obtener mensajes no leídos
-                                $unread_count = $message_model->getUnreadCount($_SESSION['user_id']);
-                                
-                                // Obtener últimos mensajes no leídos para mostrar en notificaciones
-                                $unread_messages = $message_model->getUnreadMessages($_SESSION['user_id'], 3);
-                                foreach ($unread_messages as $msg) {
-                                    $notifications[] = [
-                                        'type' => 'message',
-                                        'title' => $msg['sender_name'],
-                                        'content' => (strlen($msg['content']) > 30) ? substr($msg['content'], 0, 30) . '...' : $msg['content'],
-                                        'time' => $msg['created_at'],
-                                        'url' => 'index.php?controller=chat&action=conversation&user_id=' . $msg['sender_id']
-                                    ];
-                                }
-                            }
-                        } catch (PDOException $e) {
-                            // La tabla no existe o hay algún problema con la consulta
-                            $unread_count = 0;
-                        }
-                    }
-                    
-                    // Aquí podrías añadir otras notificaciones del sistema
-                } catch (Exception $e) {
-                    // Si hay algún error, simplemente ignorar
+                    $unread_count = $messageModel->getUnreadCount($_SESSION['user_id']);
+                    $notifications = $messageModel->getRecentNotifications($_SESSION['user_id'], 5);
+                } catch (PDOException $e) {
+                    // Si la columna/tabla no existe o hay error en modelo
                     $unread_count = 0;
                     $notifications = [];
                 }
             }
-            
-            // Incluir el layout
-            include_once "views/{$layout}.php";
+
+            // Incluir layout final
+            include_once __DIR__ . "/../views/{$layout}.php";
+
         } catch (Exception $e) {
-            // Si hay algún error crítico, mostrar un mensaje amigable
-            echo "Ha ocurrido un error. Por favor, contacte al administrador.";
-            // En entorno de desarrollo, mostrar el error
-            if (true) { // Cambiar a una variable de configuración para entorno
-                echo "<pre>Error: " . $e->getMessage() . "\n";
-                echo $e->getTraceAsString() . "</pre>";
+            // Mostrar mensaje de error en desarrollo
+            if (defined('APP_ENV') && APP_ENV === 'development') {
+                echo "<h2>Error en renderizado</h2>";
+                echo "<pre>" . $e->getMessage() . "</pre>";
+                echo "<pre>" . $e->getTraceAsString() . "</pre>";
+            } else {
+                echo "Ha ocurrido un error. Intenta más tarde.";
             }
         }
     }
 }
-?>

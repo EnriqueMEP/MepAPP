@@ -1,70 +1,84 @@
 <?php
+// Archivo: index.php (Front Controller)
 
-include_once 'debug.php';
+// Mostrar errores en desarrollo
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
-// Iniciar sesión al principio de la aplicación
-if (session_status() == PHP_SESSION_NONE) {
+// Cargar configuración de la app
+require_once __DIR__ . '/config/app.php';
+
+// Iniciar sesión
+if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
-// Incluir configuración de base de datos
-include_once "config/database.php";
+// Redirigir usuarios autenticados que intenten acceder al login
+if (
+    isset($_SESSION['user_id']) &&
+    isset($_GET['controller']) &&
+    strtolower($_GET['controller']) === 'auth' &&
+    in_array(strtolower($_GET['action'] ?? ''), ['login', 'register'], true)
+) {
+    header('Location: index.php?controller=dashboard&action=index');
+    exit;
+}
 
-// Obtener ruta desde URL
-$controller = isset($_GET['controller']) ? $_GET['controller'] : '';
-$action = isset($_GET['action']) ? $_GET['action'] : 'index';
+// Configuración de base de datos
+require_once __DIR__ . '/config/database.php';
 
-// Verificación de autenticación
-$public_routes = ['auth.login', 'auth.logout', 'auth.register'];
-$route = $controller . '.' . $action;
+// Leer controlador y acción desde la URL
+$controller = !empty($_GET['controller']) ? strtolower($_GET['controller']) : '';
+$action     = !empty($_GET['action']) ? strtolower($_GET['action']) : 'index';
+$route      = "$controller.$action";
 
-// Verificar si el usuario está autenticado para rutas protegidas
-if (!isset($_SESSION['user_id']) && !in_array($route, $public_routes) && $controller !== '') {
+// Rutas públicas (sin sesión)
+$publicRoutes = [
+    'auth.login',
+    'auth.logout',
+    'auth.register'
+];
+
+// Si ruta protegida y no hay sesión, forzar login
+if (!isset($_SESSION['user_id']) && !in_array($route, $publicRoutes, true)) {
     header('Location: index.php?controller=auth&action=login');
     exit;
 }
 
-// Por defecto ir al dashboard para usuarios autenticados sin ruta específica
-if (empty($controller) && isset($_SESSION['user_id'])) {
-    header('Location: index.php?controller=dashboard');
-    exit;
-}
-
-// Por defecto ir al login para usuarios no autenticados
-if (empty($controller) && !isset($_SESSION['user_id'])) {
-    header('Location: index.php?controller=auth&action=login');
-    exit;
-}
-
-// Cargar controlador si existe
-$controller_file = "controllers/{$controller}_controller.php";
-
-if (file_exists($controller_file)) {
-    include_once $controller_file;
-    
-    // Instanciar controlador
-    $controller_class = ucfirst($controller) . "Controller";
-    
-    if (class_exists($controller_class)) {
-        $controller_obj = new $controller_class();
-        
-        if (method_exists($controller_obj, $action)) {
-            // Ejecutar acción del controlador
-            $controller_obj->$action();
-            exit;
-        } else {
-            // Método no encontrado
-            include_once "views/404.php";
-            exit;
-        }
+// Si no se especificó controlador, redirigir según estado de sesión
+if (empty($controller)) {
+    if (isset($_SESSION['user_id'])) {
+        header('Location: index.php?controller=dashboard&action=index');
     } else {
-        // Clase de controlador no encontrada
-        include_once "views/404.php";
-        exit;
+        header('Location: index.php?controller=auth&action=login');
     }
-} else {
-    // Archivo de controlador no encontrado
-    include_once "views/404.php";
     exit;
 }
-?>
+
+// Ruta al archivo del controlador
+$controllerFile = __DIR__ . "/controllers/{$controller}_controller.php";
+
+if (!file_exists($controllerFile)) {
+    // 404 controlador no existe
+    include_once __DIR__ . '/views/404.php';
+    exit;
+}
+
+require_once $controllerFile;
+$className = ucfirst($controller) . 'Controller';
+
+if (!class_exists($className)) {
+    include_once __DIR__ . '/views/404.php';
+    exit;
+}
+
+$controllerObj = new $className();
+
+if (!method_exists($controllerObj, $action)) {
+    include_once __DIR__ . '/views/404.php';
+    exit;
+}
+
+// Ejecutar acción
+$controllerObj->{$action}();
+exit;

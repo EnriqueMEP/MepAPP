@@ -1,155 +1,149 @@
 <?php
 // controllers/auth_controller.php
-require_once 'controllers/base_controller.php';
+require_once __DIR__ . '/base_controller.php';
 
 class AuthController extends BaseController {
     protected $user;
-    
+
     public function __construct() {
         parent::__construct();
-        
         // Inicializar modelo de usuario
-        require_once 'models/user.php';
+        require_once __DIR__ . '/../models/user.php';
         $this->user = new User($this->db);
+        // La sesión se inicia en el front-controller (index.php)
     }
-    
-    // Método para el formulario de login
-    public function login() {
-        $error = '';
-        
-        // Si el formulario fue enviado
-        if($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Validar credenciales
-            if(empty($_POST['email']) || empty($_POST['password'])) {
-                $error = 'Por favor, ingrese email y contraseña';
+
+    /**
+     * Mostrar formulario de login y procesar envío
+     */
+public function login() {
+    $error = '';
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $email    = trim($_POST['email']    ?? '');
+        $password = trim($_POST['password'] ?? '');
+
+        if ($email === '' || $password === '') {
+            $error = 'Por favor, ingrese email y contraseña';
+        } else {
+            // 1) Traer el hash desde la columna correcta (aquí 'password')
+            $stmt = $this->db->prepare(
+                "SELECT id, email, password, full_name, role
+                   FROM users
+                  WHERE email = ?"
+            );
+            $stmt->execute([$email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // 2) Verificar que exista y coincida la contraseña
+            if ($user && password_verify($password, $user['password'])) {
+                // 3) Guardar datos en sesión
+                $_SESSION['user_id']    = $user['id'];
+                $_SESSION['user_email'] = $user['email'];
+                $_SESSION['user_name']  = $user['full_name'];
+                $_SESSION['user_role']  = $user['role'];
+
+                // 4) Redirigir al dashboard
+                header('Location: index.php?controller=dashboard&action=index');
+                exit;
             } else {
-                $email = $_POST['email'];
-                $password = $_POST['password'];
-                
-                // Intentar login
-                if($this->user->login($email, $password)) {
-                    // Iniciar sesión
-                    $_SESSION['user_id'] = $this->user->id;
-                    $_SESSION['user_email'] = $this->user->email;
-                    $_SESSION['user_name'] = $this->user->full_name;
-                    $_SESSION['user_role'] = $this->user->role;
-                    
-                    // Redirigir al dashboard
-                    header('Location: index.php?controller=dashboard');
-                    exit;
-                } else {
-                    $error = 'Credenciales inválidas';
-                }
+                $error = 'Credenciales inválidas';
             }
         }
-        
-        // Cargar vista
-        $this->render('auth/login', [
-            'error' => $error,
-            'title' => 'Iniciar Sesión'
-        ], 'layout_auth');
     }
-    
-    // Método para registro (sólo accesible a administradores)
+
+    // Mostrar el formulario de login personalizado
+    require_once __DIR__ . '/../views/auth/login.php';
+}
+
+
+    /**
+     * Registrar nuevo usuario (solo admins)
+     */
     public function register() {
-        // Verificar si el usuario está logueado y es admin
-        if(!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
+        if (empty($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') {
             header('Location: index.php?controller=auth&action=login');
             exit;
         }
-        
-        $error = '';
+
+        $error   = '';
         $success = '';
-        
-        // Si el formulario fue enviado
-        if($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Validar datos
-            if(empty($_POST['email']) || empty($_POST['password']) || empty($_POST['full_name']) || empty($_POST['role'])) {
-                $error = 'Todos los campos son obligatorios';
-            } else {
-                // Configurar modelo
-                $this->user->email = $_POST['email'];
-                $this->user->password = $_POST['password'];
-                $this->user->full_name = $_POST['full_name'];
-                $this->user->role = $_POST['role'];
-                $this->user->department = isset($_POST['department']) ? $_POST['department'] : '';
-                $this->user->active = 1;
-                
-                // Intentar crear
-                if($this->user->create()) {
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $required = ['email', 'password', 'full_name', 'role'];
+            foreach ($required as $field) {
+                if (empty($_POST[$field])) {
+                    $error = 'Todos los campos marcados son obligatorios';
+                    break;
+                }
+            }
+
+            if (!$error) {
+                $this->user->email      = trim($_POST['email']);
+                $this->user->password   = trim($_POST['password']);
+                $this->user->full_name  = trim($_POST['full_name']);
+                $this->user->role       = trim($_POST['role']);
+                $this->user->department = trim($_POST['department'] ?? '');
+                $this->user->active     = 1;
+
+                if ($this->user->create()) {
                     $success = 'Usuario creado correctamente';
                 } else {
-                    $error = 'Error al crear el usuario. El email podría ya estar en uso.';
+                    $error = 'Error al crear el usuario. El correo podría estar en uso.';
                 }
             }
         }
-        
-        // Cargar vista
-        $this->render('auth/register', [
-            'error' => $error,
-            'success' => $success,
-            'title' => 'Registrar Usuario'
-        ]);
+
+        $this->render(
+            'auth/register',
+            ['error' => $error, 'success' => $success, 'title' => 'Registrar Usuario'],
+            'layout_auth'
+        );
     }
-    
-    // Método para cerrar sesión
+
+    /** Cerrar sesión */
     public function logout() {
-        // Destruir todas las variables de sesión
-        $_SESSION = array();
-        
-        // Destruir la sesión
+        session_unset();
         session_destroy();
-        
-        // Redirigir a login
         header('Location: index.php?controller=auth&action=login');
         exit;
     }
-    
-    // Método para listar usuarios (sólo admin)
+
+    /** Listar usuarios (solo admins) */
     public function users() {
-        // Verificar si el usuario está logueado y es admin
-        if(!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
+        if (empty($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') {
             header('Location: index.php?controller=auth&action=login');
             exit;
         }
-        
-        // Obtener todos los usuarios
-        $stmt = $this->user->read();
+
+        $stmt  = $this->user->read();
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Cargar vista
-        $this->render('auth/users', [
-            'users' => $users,
-            'title' => 'Gestión de Usuarios'
-        ]);
+
+        $this->render('auth/users', ['users' => $users, 'title' => 'Gestión de Usuarios']);
     }
-    
-    // Método para editar usuario
+
+    /** Editar usuario (solo admins) */
     public function edit() {
-        // Verificar si el usuario está logueado y es admin
-        if(!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
+        if (empty($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') {
             header('Location: index.php?controller=auth&action=login');
             exit;
         }
-        
-        $error = '';
-        $success = '';
+
+        $error     = '';
+        $success   = '';
         $user_data = null;
-        
-        // Obtener ID del usuario a editar
-        $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-        
-        if($id > 0) {
-            // Obtener datos del usuario
+        $id        = intval($_GET['id'] ?? 0);
+
+        if ($id > 0) {
             $this->user->id = $id;
-            if($this->user->read_single()) {
+            if ($this->user->read_single()) {
                 $user_data = [
-                    'id' => $this->user->id,
-                    'email' => $this->user->email,
+                    'id'        => $this->user->id,
+                    'email'     => $this->user->email,
                     'full_name' => $this->user->full_name,
-                    'role' => $this->user->role,
-                    'department' => $this->user->department,
-                    'active' => $this->user->active
+                    'role'      => $this->user->role,
+                    'department'=> $this->user->department,
+                    'active'    => $this->user->active
                 ];
             } else {
                 $error = 'Usuario no encontrado';
@@ -157,89 +151,60 @@ class AuthController extends BaseController {
         } else {
             $error = 'ID de usuario inválido';
         }
-        
-        // Si el formulario fue enviado
-        if($_SERVER['REQUEST_METHOD'] === 'POST' && $id > 0) {
-            // Validar datos
-            if(empty($_POST['email']) || empty($_POST['full_name']) || empty($_POST['role'])) {
-                $error = 'Email, nombre y rol son obligatorios';
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && $id > 0) {
+            if (empty($_POST['email']) || empty($_POST['full_name']) || empty($_POST['role'])) {
+                $error = 'Email, Nombre y Rol son obligatorios';
             } else {
-                // Configurar modelo
-                $this->user->id = $id;
-                $this->user->email = $_POST['email'];
-                $this->user->full_name = $_POST['full_name'];
-                $this->user->role = $_POST['role'];
-                $this->user->department = isset($_POST['department']) ? $_POST['department'] : '';
-                $this->user->active = isset($_POST['active']) ? 1 : 0;
-                
-                // Si se proporcionó una nueva contraseña
-                if(!empty($_POST['password'])) {
-                    $this->user->password = $_POST['password'];
+                $this->user->id         = $id;
+                $this->user->email      = trim($_POST['email']);
+                $this->user->full_name  = trim($_POST['full_name']);
+                $this->user->role       = trim($_POST['role']);
+                $this->user->department = trim($_POST['department'] ?? '');
+                $this->user->active     = isset($_POST['active']) ? 1 : 0;
+
+                if (!empty($_POST['password'])) {
+                    $this->user->password = trim($_POST['password']);
                 }
-                
-                // Intentar actualizar
-                if($this->user->update()) {
+
+                if ($this->user->update()) {
                     $success = 'Usuario actualizado correctamente';
-                    
-                    // Actualizar datos mostrados
-                    $user_data = [
-                        'id' => $this->user->id,
-                        'email' => $this->user->email,
-                        'full_name' => $this->user->full_name,
-                        'role' => $this->user->role,
-                        'department' => $this->user->department,
-                        'active' => $this->user->active
-                    ];
+                    $user_data['email']     = $this->user->email;
+                    $user_data['full_name'] = $this->user->full_name;
+                    $user_data['role']      = $this->user->role;
+                    $user_data['department']= $this->user->department;
+                    $user_data['active']    = $this->user->active;
                 } else {
-                    $error = 'Error al actualizar el usuario. El email podría ya estar en uso.';
+                    $error = 'Error al actualizar. El correo podría estar en uso.';
                 }
             }
         }
-        
-        // Cargar vista
-        $this->render('auth/edit', [
-            'error' => $error,
-            'success' => $success,
-            'user_data' => $user_data,
-            'title' => 'Editar Usuario'
-        ]);
+
+        $this->render('auth/edit', ['error' => $error, 'success' => $success, 'user_data' => $user_data, 'title' => 'Editar Usuario']);
     }
-    
-    // Método para eliminar usuario
+
+    /** Eliminar usuario (solo admins) */
     public function delete() {
-        // Verificar si el usuario está logueado y es admin
-        if(!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
+        if (empty($_SESSION['user_id']) || ($_SESSION['user_role'] ?? '') !== 'admin') {
             header('Location: index.php?controller=auth&action=login');
             exit;
         }
-        
-        // Obtener ID del usuario a eliminar
-        $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
-        
-        // No permitir eliminar al propio usuario
-        if($id === $_SESSION['user_id']) {
+
+        $id = intval($_GET['id'] ?? 0);
+        if ($id === $_SESSION['user_id']) {
             $_SESSION['error'] = 'No puedes eliminar tu propio usuario';
-            header('Location: index.php?controller=auth&action=users');
-            exit;
-        }
-        
-        if($id > 0) {
-            // Configurar modelo
+        } elseif ($id > 0) {
             $this->user->id = $id;
-            
-            // Intentar eliminar
-            if($this->user->delete()) {
+            if ($this->user->delete()) {
                 $_SESSION['success'] = 'Usuario eliminado correctamente';
             } else {
-                $_SESSION['error'] = 'Error al eliminar el usuario';
+                $_SESSION['error'] = 'Error al eliminar usuario';
             }
         } else {
             $_SESSION['error'] = 'ID de usuario inválido';
         }
-        
-        // Redirigir a la lista de usuarios
+
         header('Location: index.php?controller=auth&action=users');
         exit;
     }
 }
-?>

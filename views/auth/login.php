@@ -1,4 +1,6 @@
 <?php 
+// views/auth/login.php
+
 // Título para el layout
 $title = "Iniciar Sesión";
 
@@ -15,7 +17,7 @@ ob_start();
         
         <?php if (!empty($error)): ?>
             <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded">
-                <p><?php echo $error; ?></p>
+                <p><?php echo htmlspecialchars($error); ?></p>
             </div>
         <?php endif; ?>
         
@@ -49,6 +51,5 @@ ob_start();
 // Obtener el contenido del buffer
 $content = ob_get_clean();
 
-// Incluir el layout
-include_once 'views/layout_auth.php';
-?>
+// Incluir el layout de autenticación
+include_once __DIR__ . '/../layout_auth.php';

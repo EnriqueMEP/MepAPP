@@ -1,83 +1,76 @@
 <?php
 // controllers/dashboard_controller.php
-require_once 'controllers/base_controller.php';
+require_once __DIR__ . '/base_controller.php';
 
 class DashboardController extends BaseController {
     public function __construct() {
         parent::__construct();
     }
-    
+
     public function index() {
         // Verificar permisos
         $this->requirePermission('dashboard', 'read');
-        
-        // Datos para el dashboard (simulados por ahora)
-        $stats = [
-            'proyectos_activos' => 24,
-            'tareas_pendientes' => 18,
-            'ingresos_mensuales' => 32840,
-            'clientes_activos' => 56
-        ];
-        
-        // Proyectos recientes (simulados)
-        $proyectos_recientes = [
+
+        // Obtener ID de usuario actual
+        $userId = $_SESSION['user_id'];
+
+        // 1. Estadísticas dinámicas
+        // Proyectos activos
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM projects WHERE status = 'En progreso'");
+        $stmt->execute();
+        $stats['proyectos_activos'] = (int) $stmt->fetchColumn();
+
+        // Tareas pendientes para el usuario
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) FROM tasks WHERE assigned_to = ? AND status != 'Completada'"
+        );
+        $stmt->execute([$userId]);
+        $stats['tareas_pendientes'] = (int) $stmt->fetchColumn();
+
+        // Ingresos del mes actual
+        $stmt = $this->db->prepare(
+            "SELECT COALESCE(SUM(amount), 0) FROM invoices
+             WHERE MONTH(created_at) = MONTH(CURDATE())
+               AND YEAR(created_at) = YEAR(CURDATE())"
+        );
+        $stmt->execute();
+        $stats['ingresos_mensuales'] = (float) $stmt->fetchColumn();
+
+        // Clientes activos
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM customers WHERE active = 1");
+        $stmt->execute();
+        $stats['clientes_activos'] = (int) $stmt->fetchColumn();
+
+        // 2. Proyectos recientes (últimos 5)
+        $stmt = $this->db->prepare(
+            "SELECT name, progress, status
+               FROM projects
+              ORDER BY created_at DESC
+              LIMIT 5"
+        );
+        $stmt->execute();
+        $proyectos_recientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // 3. Tareas próximas (hasta 5)
+        $stmt = $this->db->prepare(
+            "SELECT name, priority, DATE_FORMAT(due_date, '%d/%m/%Y') AS date
+               FROM tasks
+              WHERE assigned_to = ? AND status != 'Completada'
+              ORDER BY due_date ASC
+              LIMIT 5"
+        );
+        $stmt->execute([$userId]);
+        $tareas_pendientes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Renderizar la vista con datos dinámicos
+        $this->render(
+            'dashboard/index',
             [
-                'name' => 'Diseño portal web MEP-2025',
-                'progress' => 75,
-                'status' => 'En progreso',
-                'priority' => 'Alta'
-            ],
-            [
-                'name' => 'Implementación ERP Fábrica Málaga',
-                'progress' => 45,
-                'status' => 'En progreso',
-                'priority' => 'Media'
-            ],
-            [
-                'name' => 'Migración servidores cloud',
-                'progress' => 90,
-                'status' => 'En progreso',
-                'priority' => 'Alta'
-            ],
-            [
-                'name' => 'Mantenimiento anual Sistemas',
-                'progress' => 10,
-                'status' => 'Iniciado',
-                'priority' => 'Baja'
+                'title'               => 'Dashboard',
+                'stats'               => $stats,
+                'proyectos_recientes' => $proyectos_recientes,
+                'tareas_pendientes'   => $tareas_pendientes
             ]
-        ];
-        
-        // Tareas pendientes (simuladas)
-        $tareas_pendientes = [
-            [
-                'name' => 'Revisar propuesta técnica',
-                'priority' => 'Alta',
-                'date' => 'Hoy'
-            ],
-            [
-                'name' => 'Actualizar documentación API',
-                'priority' => 'Media',
-                'date' => 'Mañana'
-            ],
-            [
-                'name' => 'Enviar informe mensual',
-                'priority' => 'Alta',
-                'date' => 'Hoy'
-            ],
-            [
-                'name' => 'Preparar reunión equipo',
-                'priority' => 'Baja',
-                'date' => '22 May'
-            ]
-        ];
-        
-        // Renderizar vista
-        $this->render('dashboard/index', [
-            'title' => 'Dashboard',
-            'stats' => $stats,
-            'proyectos_recientes' => $proyectos_recientes,
-            'tareas_pendientes' => $tareas_pendientes
-        ]);
+        );
     }
 }
-?>

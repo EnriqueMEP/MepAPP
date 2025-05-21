@@ -1,78 +1,76 @@
+<?php
+// views/layout.php
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MEP-Projects | <?php echo isset($title) ? $title : 'Sistema de Gestión'; ?></title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
-    <link rel="stylesheet" href="assets/css/styles.css">
-    <script src="https://unpkg.com/lucide@latest"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><?= htmlspecialchars($title ?? APP_NAME) ?></title>
+
+  <!-- Tailwind y tus estilos compilados -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="<?= CSS_URL ?>styles.css?v=<?= APP_VERSION ?>">
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
-    <!-- Header/Navbar -->
-    <header class="bg-blue-800 text-white shadow-md">
-        <div class="container mx-auto px-4 py-3">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-6">
-                    <a href="index.php" class="text-xl font-bold">MEP-Projects</a>
-                    <nav class="hidden md:flex space-x-6">
-                        <a href="index.php?controller=dashboard" class="hover:text-blue-200 <?php echo isset($_GET['controller']) && $_GET['controller'] == 'dashboard' ? 'font-medium' : ''; ?>">Dashboard</a>
-                        <a href="index.php?controller=projects" class="hover:text-blue-200 <?php echo isset($_GET['controller']) && $_GET['controller'] == 'projects' ? 'font-medium' : ''; ?>">Proyectos</a>
-                        <a href="index.php?controller=crm" class="hover:text-blue-200 <?php echo isset($_GET['controller']) && $_GET['controller'] == 'crm' ? 'font-medium' : ''; ?>">CRM</a>
-                        <a href="index.php?controller=erp" class="hover:text-blue-200 <?php echo isset($_GET['controller']) && $_GET['controller'] == 'erp' ? 'font-medium' : ''; ?>">ERP</a>
-                        <a href="index.php?controller=rrhh" class="hover:text-blue-200 <?php echo isset($_GET['controller']) && $_GET['controller'] == 'rrhh' ? 'font-medium' : ''; ?>">RRHH</a>
-                    </nav>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <div class="relative">
-                        <i data-lucide="bell" class="w-5 h-5"></i>
-                        <span class="absolute -top-1 -right-1 bg-red-500 text-xs text-white rounded-full w-4 h-4 flex items-center justify-center">3</span>
-                    </div>
-                    <div class="bg-blue-700 rounded-md px-3 py-1 flex items-center space-x-2">
-                        <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-blue-800 font-semibold">JP</div>
-                        <span class="hidden md:inline">Juan Pérez</span>
-                        <i data-lucide="chevron-down" class="w-4 h-4"></i>
-                    </div>
-                </div>
-            </div>
+
+  <!-- Header -->
+  <header class="bg-blue-800 text-white shadow-md">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <a href="<?= BASE_URL ?>index.php?controller=dashboard&action=index" class="text-xl font-bold"><?= APP_NAME ?></a>
+      <nav class="space-x-6">
+        <a href="<?= BASE_URL ?>index.php?controller=dashboard&action=index" class="<?= ($_GET['controller'] ?? '') === 'dashboard' ? 'underline' : '' ?>">Dashboard</a>
+        <a href="<?= BASE_URL ?>index.php?controller=projects&action=index" class="<?= ($_GET['controller'] ?? '') === 'projects' ? 'underline' : '' ?>">Proyectos</a>
+        <a href="<?= BASE_URL ?>index.php?controller=crm&action=index" class="<?= ($_GET['controller'] ?? '') === 'crm' ? 'underline' : '' ?>">CRM</a>
+        <a href="<?= BASE_URL ?>index.php?controller=erp&action=index" class="<?= ($_GET['controller'] ?? '') === 'erp' ? 'underline' : '' ?>">ERP</a>
+        <a href="<?= BASE_URL ?>index.php?controller=rrhh&action=index" class="<?= ($_GET['controller'] ?? '') === 'rrhh' ? 'underline' : '' ?>">RRHH</a>
+        <a href="<?= BASE_URL ?>index.php?controller=chat&action=index" class="<?= ($_GET['controller'] ?? '') === 'chat' ? 'underline' : '' ?>">Chat</a>
+      </nav>
+      <div class="flex items-center space-x-4">
+        <!-- Notificaciones -->
+        <div class="relative">
+          <a href="<?= BASE_URL ?>index.php?controller=notifications&action=index">
+            <i data-lucide="bell" class="w-5 h-5"></i>
+            <?php if (!empty($unread_count)): ?>
+              <span class="absolute -top-1 -right-1 bg-red-500 text-xs text-white rounded-full w-4 h-4 flex items-center justify-center">
+                <?= $unread_count ?>
+              </span>
+            <?php endif; ?>
+          </a>
         </div>
-    </header>
-    
-  <!-- Main Content -->
-<main class="flex-1">
-    <?php 
-    // Verificar si el archivo de vista existe antes de intentar incluirlo
-    $view_file = "views/{$_GET['controller']}/index.php";
-    if (file_exists($view_file)) {
-        include_once $view_file;
-    } else {
-        // Mostrar un mensaje de vista no encontrada
-        echo "<div class='p-6'>";
-        echo "<div class='bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md'>";
-        echo "<p>La vista para este módulo aún no está disponible.</p>";
-        echo "</div>";
-        echo "</div>";
-    }
-    ?>
-</main>
-    <!-- Footer -->
-    <footer class="bg-white py-4 border-t border-gray-200">
-        <div class="container mx-auto px-4">
-            <div class="flex flex-col md:flex-row justify-between items-center">
-                <div class="text-sm text-gray-500">
-                    © <?php echo date('Y'); ?> MEP-Projects. Todos los derechos reservados.
-                </div>
-                <div class="text-sm text-gray-500 mt-2 md:mt-0">
-                    v1.0.0 | <a href="#" class="text-blue-600">Soporte</a> | <a href="#" class="text-blue-600">Documentación</a>
-                </div>
+        <!-- Usuario -->
+        <div class="relative group">
+          <button class="flex items-center space-x-2 bg-blue-700 px-3 py-1 rounded-md">
+            <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center font-semibold">
+              <?= strtoupper(substr($_SESSION['user_name'],0,1)) ?>
             </div>
+            <span class="hidden md:inline"><?= htmlspecialchars($_SESSION['user_name']) ?></span>
+            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+          </button>
+          <div class="absolute right-0 mt-2 w-40 bg-white text-gray-800 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+            <a href="<?= BASE_URL ?>index.php?controller=auth&action=logout" class="block px-4 py-2 hover:bg-gray-100">Cerrar sesión</a>
+          </div>
         </div>
-    </footer>
-    
-    <script>
-        // Inicializar los iconos de Lucide
-        lucide.createIcons();
-    </script>
-    <script src="assets/js/main.js"></script>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="flex-1 container mx-auto px-4 py-6">
+    <?= $content ?>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white py-4 border-t border-gray-200">
+    <div class="container mx-auto px-4 flex justify-between text-sm text-gray-500">
+      <div>© <?= date('Y') ?> <?= APP_NAME ?>. Todos los derechos reservados.</div>
+      <div>v<?= APP_VERSION ?> | <a href="#" class="text-blue-600 hover:underline">Soporte</a> | <a href="#" class="text-blue-600 hover:underline">Documentación</a></div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>lucide.createIcons()</script>
+  <script src="<?= JS_URL ?>main.js?v=<?= APP_VERSION ?>"></script>
 </body>
 </html>

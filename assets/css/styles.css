@@ -1,12 +1,80 @@
 /* Estilos personalizados para MEP-Projects */
 
-/* Variables de color */
+/* Variables de color corporativas */
 :root {
-    --mep-primary: green;
-    --mep-secondary: #05B32B;
-    --mep-accent: #22c55e;
-    --mep-dark: #1f2937;
-    --mep-light: #f9fafb;
+    --mep-primary: #548235;        /* Verde corporativo principal */
+    --mep-primary-light: #6a9c45;  /* Verde más claro */
+    --mep-primary-dark: #3f6228;   /* Verde más oscuro */
+    --mep-accent: #76b347;         /* Verde acento */
+    --mep-secondary: #333333;      /* Negro/gris oscuro secundario */
+    --mep-light: #f9fafb;          /* Color claro para fondos */
+    --mep-gray: #4b5563;           /* Gris para textos */
+    --mep-success: #10b981;        /* Verde éxito */
+    --mep-warning: #f59e0b;        /* Naranja advertencia */
+    --mep-error: #ef4444;          /* Rojo error */
+    --mep-info: #3b82f6;           /* Azul información */
+}
+
+/* Clases de color personalizadas */
+.bg-mep-primary {
+    background-color: var(--mep-primary);
+}
+
+.bg-mep-primary-light {
+    background-color: var(--mep-primary-light);
+}
+
+.bg-mep-primary-dark {
+    background-color: var(--mep-primary-dark);
+}
+
+.bg-mep-accent {
+    background-color: var(--mep-accent);
+}
+
+.text-mep-primary {
+    color: var(--mep-primary);
+}
+
+.text-mep-primary-light {
+    color: var(--mep-primary-light);
+}
+
+.text-mep-primary-dark {
+    color: var(--mep-primary-dark);
+}
+
+.border-mep-primary {
+    border-color: var(--mep-primary);
+}
+
+/* Botones personalizados */
+.btn-primary {
+    background-color: var(--mep-primary);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.btn-primary:hover {
+    background-color: var(--mep-primary-dark);
+}
+
+.btn-secondary {
+    background-color: white;
+    color: var(--mep-primary);
+    border: 1px solid var(--mep-primary);
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-secondary:hover {
+    background-color: var(--mep-primary-light);
+    color: white;
 }
 
 /* Transiciones suaves */
@@ -36,4 +104,127 @@
 
 ::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
+}
+
+/* Badges (etiquetas de estado) */
+.badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge-success {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: var(--mep-success);
+}
+
+.badge-warning {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: var(--mep-warning);
+}
+
+.badge-error {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--mep-error);
+}
+
+.badge-info {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--mep-info);
+}
+
+.badge-primary {
+    background-color: rgba(84, 130, 53, 0.1);
+    color: var(--mep-primary);
+}
+
+/* Estilos para las tarjetas */
+.card {
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    font-weight: 600;
+}
+
+.card-body {
+    padding: 1.25rem;
+}
+
+.card-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Estilos para formularios */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--mep-gray);
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    transition: all 0.2s;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--mep-primary);
+    box-shadow: 0 0 0 3px rgba(84, 130, 53, 0.2);
+}
+
+/* Toast notifications */
+.toast {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    padding: 1rem;
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    animation: slide-in 0.3s ease-out forwards;
+    z-index: 50;
+    max-width: 24rem;
+}
+
+@keyframes slide-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast-success {
+    border-left: 4px solid var(--mep-success);
+}
+
+.toast-warning {
+    border-left: 4px solid var(--mep-warning);
+}
+
+.toast-error {
+    border-left: 4px solid var(--mep-error);
+}
+
+.toast-info {
+    border-left: 4px solid var(--mep-info);
 }

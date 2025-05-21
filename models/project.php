@@ -1,14 +1,15 @@
 <?php
 // models/project.php
+
 class Project {
     private $conn;
     private $table = 'projects';
     
-    // Propiedades del proyecto
+    // Propiedades del proyecto (coinciden con columnas de la tabla)
     public $id;
     public $name;
     public $description;
-    public $client_id;
+    public $customer_id;
     public $start_date;
     public $end_date;
     public $status;
@@ -19,280 +20,237 @@ class Project {
     public $created_at;
     public $updated_at;
     
-    public function __construct($db) {
+    public function __construct(PDO $db) {
         $this->conn = $db;
     }
     
-    // Obtener todos los proyectos con posibles filtros
-    public function read($status = '', $client = '', $priority = '', $search = '') {
-        // Construir consulta base
-        $query = "SELECT p.*, c.company_name as client, u.full_name as created_by_name
-                 FROM " . $this->table . " p
-                 LEFT JOIN clients c ON p.client_id = c.id
-                 LEFT JOIN users u ON p.created_by = u.id";
-        
-        // Aplicar filtros si existen
-        $conditions = [];
-        $params = [];
-        
-        if(!empty($status)) {
-            $conditions[] = "p.status = :status";
-            $params[':status'] = $status;
-        }
-        
-        if(!empty($client)) {
-            $conditions[] = "p.client_id = :client_id";
-            $params[':client_id'] = $client;
-        }
-        
-        if(!empty($priority)) {
-            $conditions[] = "p.priority = :priority";
-            $params[':priority'] = $priority;
-        }
-        
-        if(!empty($search)) {
-            $conditions[] = "(p.name LIKE :search OR p.description LIKE :search OR c.company_name LIKE :search)";
-            $params[':search'] = "%{$search}%";
-        }
-        
-        // Añadir condiciones a la consulta
-        if(!empty($conditions)) {
-            $query .= " WHERE " . implode(" AND ", $conditions);
-        }
-        
-        // Ordenar por fecha de actualización
-        $query .= " ORDER BY p.updated_at DESC";
-        
-        $stmt = $this->conn->prepare($query);
-        
-        // Vincular parámetros
-        foreach($params as $param => $value) {
-            $stmt->bindValue($param, $value);
-        }
-        
-        $stmt->execute();
-        
-        // Obtener y transformar resultados
-        $projects = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $result = [];
-        
-        foreach($projects as $project) {
-            // Obtener miembros del equipo
-            $team_query = "SELECT u.id, u.full_name, pm.role, SUBSTRING(u.full_name, 1, 1) as initials
-                          FROM project_members pm
-                          JOIN users u ON pm.user_id = u.id
-                          WHERE pm.project_id = :project_id";
-            $team_stmt = $this->conn->prepare($team_query);
-            $team_stmt->bindParam(':project_id', $project['id']);
-            $team_stmt->execute();
-            
-            $team = $team_stmt->fetchAll(PDO::FETCH_ASSOC);
-            $team_initials = array_column($team, 'initials');
-            
-            $project['team'] = $team;
-            $project['team_initials'] = $team_initials;
-            
-            // Formatear fechas
-            $project['start_date'] = date('d/m/Y', strtotime($project['start_date']));
-            if($project['end_date']) {
-                $project['end_date'] = date('d/m/Y', strtotime($project['end_date']));
-            }
-            
-            // Formatear presupuesto
-            $project['budget_formatted'] = number_format($project['budget'], 2, ',', '.') . '€';
-            
-            $result[] = $project;
-        }
-        
-        return $result;
+    /**
+     * Devuelve todos los proyectos sin filtros
+     */
+    public function readAll() {
+        return $this->read();
     }
     
-    // Obtener un proyecto específico
-    public function read_single() {
-        $query = "SELECT p.*, c.company_name as client, u.full_name as created_by_name
-                 FROM " . $this->table . " p
-                 LEFT JOIN clients c ON p.client_id = c.id
-                 LEFT JOIN users u ON p.created_by = u.id
-                 WHERE p.id = :id
-                 LIMIT 1";
+    /**
+     * Devuelve proyectos aplicando opcionales filtros:
+     *   $status   = 'En progreso', 'Completado', etc.
+     *   $customer = ID del cliente
+     *   $priority = 'Alta'|'Media'|'Baja'
+     *   $search   = texto a buscar en nombre/descr/cliente
+     */
+    public function read($status = '', $customer = '', $priority = '', $search = '') {
+        $sql = "
+            SELECT
+                p.*,
+                cust.name      AS customer,
+                u.full_name    AS created_by_name
+            FROM {$this->table} p
+            LEFT JOIN customers cust ON p.customer_id = cust.id
+            LEFT JOIN users u         ON p.created_by  = u.id
+        ";
         
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':id', $this->id);
+        $conditions = [];
+        $params     = [];
+        
+        if ($status !== '') {
+            $conditions[]     = "p.status = :status";
+            $params[':status'] = $status;
+        }
+        if ($customer !== '') {
+            $conditions[]          = "p.customer_id = :customer_id";
+            $params[':customer_id'] = $customer;
+        }
+        if ($priority !== '') {
+            $conditions[]        = "p.priority = :priority";
+            $params[':priority'] = $priority;
+        }
+        if ($search !== '') {
+            $conditions[]            = "(p.name LIKE :search OR p.description LIKE :search OR cust.name LIKE :search)";
+            $params[':search']       = "%{$search}%";
+        }
+        
+        if (count($conditions) > 0) {
+            $sql .= " WHERE " . implode(" AND ", $conditions);
+        }
+        
+        $sql .= " ORDER BY p.updated_at DESC";
+        
+        $stmt = $this->conn->prepare($sql);
+        foreach ($params as $key => $val) {
+            $stmt->bindValue($key, $val);
+        }
+        $stmt->execute();
+        
+        $projects = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $this->formatProjects($projects);
+    }
+    
+    /**
+     * Devuelve un único proyecto cargado en $this->id
+     */
+    public function readSingle() {
+        $sql = "
+            SELECT
+                p.*,
+                cust.name      AS customer,
+                u.full_name    AS created_by_name
+            FROM {$this->table} p
+            LEFT JOIN customers cust ON p.customer_id = cust.id
+            LEFT JOIN users u         ON p.created_by  = u.id
+            WHERE p.id = :id
+            LIMIT 1
+        ";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':id', $this->id, PDO::PARAM_INT);
         $stmt->execute();
         
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if(!$row) {
+        if (!$row) {
             return false;
         }
-        
-        // Obtener miembros del equipo
-        $team_query = "SELECT u.id, u.full_name, pm.role, SUBSTRING(u.full_name, 1, 1) as initials
-                      FROM project_members pm
-                      JOIN users u ON pm.user_id = u.id
-                      WHERE pm.project_id = :project_id";
-        $team_stmt = $this->conn->prepare($team_query);
-        $team_stmt->bindParam(':project_id', $row['id']);
-        $team_stmt->execute();
-        
-        $team = $team_stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        $row['team'] = $team;
-        
-        // Formatear fechas
-        $row['start_date'] = date('d/m/Y', strtotime($row['start_date']));
-        if($row['end_date']) {
-            $row['end_date'] = date('d/m/Y', strtotime($row['end_date']));
-        }
-        
-        // Formatear presupuesto
-        $row['budget_formatted'] = number_format($row['budget'], 2, ',', '.') . '€';
-        
-        return $row;
+        $formatted = $this->formatProjects([$row]);
+        return $formatted[0];
     }
     
-    // Crear un nuevo proyecto
+    /**
+     * Crea un nuevo proyecto con todas las propiedades ya seteadas
+     */
     public function create() {
-        $query = "INSERT INTO " . $this->table . "
-                 (name, description, client_id, start_date, end_date, status, priority, progress, budget, created_by)
-                 VALUES
-                 (:name, :description, :client_id, :start_date, :end_date, :status, :priority, :progress, :budget, :created_by)";
+        $sql = "
+            INSERT INTO {$this->table}
+              (name, description, customer_id, start_date, end_date,
+               status, priority, progress, budget, created_by)
+            VALUES
+              (:name, :description, :customer_id, :start_date, :end_date,
+               :status, :priority, :progress, :budget, :created_by)
+        ";
+        $stmt = $this->conn->prepare($sql);
         
-        $stmt = $this->conn->prepare($query);
+        // Sanitizar / bind de parámetros
+        $stmt->bindParam(':name',         $this->name);
+        $stmt->bindParam(':description',  $this->description);
+        $stmt->bindParam(':customer_id',  $this->customer_id);
+        $stmt->bindParam(':start_date',   $this->start_date);
+        $stmt->bindParam(':end_date',     $this->end_date);
+        $stmt->bindParam(':status',       $this->status);
+        $stmt->bindParam(':priority',     $this->priority);
+        $stmt->bindParam(':progress',     $this->progress);
+        $stmt->bindParam(':budget',       $this->budget);
+        $stmt->bindParam(':created_by',   $this->created_by);
         
-        // Sanitizar datos
-        $this->name = htmlspecialchars(strip_tags($this->name));
-        $this->description = htmlspecialchars(strip_tags($this->description));
-        $this->client_id = htmlspecialchars(strip_tags($this->client_id));
-        $this->status = htmlspecialchars(strip_tags($this->status));
-        $this->priority = htmlspecialchars(strip_tags($this->priority));
-        $this->progress = htmlspecialchars(strip_tags($this->progress));
-        $this->budget = htmlspecialchars(strip_tags($this->budget));
-        $this->created_by = htmlspecialchars(strip_tags($this->created_by));
-        
-        // Vincular parámetros
-        $stmt->bindParam(':name', $this->name);
-        $stmt->bindParam(':description', $this->description);
-        $stmt->bindParam(':client_id', $this->client_id);
-        $stmt->bindParam(':start_date', $this->start_date);
-        $stmt->bindParam(':end_date', $this->end_date);
-        $stmt->bindParam(':status', $this->status);
-        $stmt->bindParam(':priority', $this->priority);
-        $stmt->bindParam(':progress', $this->progress);
-        $stmt->bindParam(':budget', $this->budget);
-        $stmt->bindParam(':created_by', $this->created_by);
-        
-        // Ejecutar consulta
-        if($stmt->execute()) {
+        if ($stmt->execute()) {
             $this->id = $this->conn->lastInsertId();
             return true;
         }
-        
         return false;
     }
     
-    // Actualizar un proyecto existente
+    /**
+     * Actualiza un proyecto existente
+     */
     public function update() {
-        $query = "UPDATE " . $this->table . "
-                 SET name = :name,
-                     description = :description,
-                     client_id = :client_id,
-                     start_date = :start_date,
-                     end_date = :end_date,
-                     status = :status,
-                     priority = :priority,
-                     progress = :progress,
-                     budget = :budget
-                 WHERE id = :id";
+        $sql = "
+            UPDATE {$this->table}
+            SET
+              name         = :name,
+              description  = :description,
+              customer_id  = :customer_id,
+              start_date   = :start_date,
+              end_date     = :end_date,
+              status       = :status,
+              priority     = :priority,
+              progress     = :progress,
+              budget       = :budget
+            WHERE id = :id
+        ";
+        $stmt = $this->conn->prepare($sql);
         
-        $stmt = $this->conn->prepare($query);
+        // Bind
+        $stmt->bindParam(':id',           $this->id,         PDO::PARAM_INT);
+        $stmt->bindParam(':name',         $this->name);
+        $stmt->bindParam(':description',  $this->description);
+        $stmt->bindParam(':customer_id',  $this->customer_id);
+        $stmt->bindParam(':start_date',   $this->start_date);
+        $stmt->bindParam(':end_date',     $this->end_date);
+        $stmt->bindParam(':status',       $this->status);
+        $stmt->bindParam(':priority',     $this->priority);
+        $stmt->bindParam(':progress',     $this->progress);
+        $stmt->bindParam(':budget',       $this->budget);
         
-        // Sanitizar datos
-        $this->id = htmlspecialchars(strip_tags($this->id));
-        $this->name = htmlspecialchars(strip_tags($this->name));
-        $this->description = htmlspecialchars(strip_tags($this->description));
-        $this->client_id = htmlspecialchars(strip_tags($this->client_id));
-        $this->status = htmlspecialchars(strip_tags($this->status));
-        $this->priority = htmlspecialchars(strip_tags($this->priority));
-        $this->progress = htmlspecialchars(strip_tags($this->progress));
-        $this->budget = htmlspecialchars(strip_tags($this->budget));
-        
-        // Vincular parámetros
-        $stmt->bindParam(':id', $this->id);
-        $stmt->bindParam(':name', $this->name);
-        $stmt->bindParam(':description', $this->description);
-        $stmt->bindParam(':client_id', $this->client_id);
-        $stmt->bindParam(':start_date', $this->start_date);
-        $stmt->bindParam(':end_date', $this->end_date);
-        $stmt->bindParam(':status', $this->status);
-        $stmt->bindParam(':priority', $this->priority);
-        $stmt->bindParam(':progress', $this->progress);
-        $stmt->bindParam(':budget', $this->budget);
-        
-        // Ejecutar consulta
-        if($stmt->execute()) {
-            return true;
-        }
-        
-        return false;
+        return $stmt->execute();
     }
     
-    // Eliminar un proyecto
+    /**
+     * Elimina un proyecto y sus dependencias (tareas y miembros)
+     */
     public function delete() {
-        // Primero eliminar las relaciones (miembros del equipo y tareas)
+        // Borrar miembros
         $this->clearMembers($this->id);
-        
-        $delete_tasks = "DELETE FROM tasks WHERE project_id = :project_id";
-        $task_stmt = $this->conn->prepare($delete_tasks);
-        $task_stmt->bindParam(':project_id', $this->id);
-        $task_stmt->execute();
-        
-        // Ahora eliminar el proyecto
-        $query = "DELETE FROM " . $this->table . " WHERE id = :id";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':id', $this->id);
-        
-        if($stmt->execute()) {
-            return true;
-        }
-        
-        return false;
-    }
-    
-    // Añadir un miembro al equipo del proyecto
-    public function addMember($project_id, $user_id, $role = '') {
-        $query = "INSERT INTO project_members (project_id, user_id, role)
-                 VALUES (:project_id, :user_id, :role)";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':project_id', $project_id);
-        $stmt->bindParam(':user_id', $user_id);
-        $stmt->bindParam(':role', $role);
-        
-        return $stmt->execute();
-    }
-    
-    // Eliminar todos los miembros del equipo del proyecto
-    public function clearMembers($project_id) {
-        $query = "DELETE FROM project_members WHERE project_id = :project_id";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':project_id', $project_id);
-        
-        return $stmt->execute();
-    }
-    
-    // Obtener los miembros del equipo de un proyecto
-    public function getTeamMembers($project_id) {
-        $query = "SELECT pm.*, u.full_name, u.email
-                 FROM project_members pm
-                 JOIN users u ON pm.user_id = u.id
-                 WHERE pm.project_id = :project_id";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':project_id', $project_id);
+        // Borrar tareas
+        $stmt = $this->conn->prepare("DELETE FROM tasks WHERE project_id = :pid");
+        $stmt->bindParam(':pid', $this->id, PDO::PARAM_INT);
         $stmt->execute();
-        
+        // Borrar proyecto
+        $stmt = $this->conn->prepare("DELETE FROM {$this->table} WHERE id = :id");
+        $stmt->bindParam(':id', $this->id, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
+    
+    /** Añade un miembro */
+    public function addMember($project_id, $user_id, $role = '') {
+        $stmt = $this->conn->prepare("
+            INSERT INTO project_members (project_id, user_id, role)
+            VALUES (:pid, :uid, :role)
+        ");
+        $stmt->bindParam(':pid',  $project_id, PDO::PARAM_INT);
+        $stmt->bindParam(':uid',  $user_id,    PDO::PARAM_INT);
+        $stmt->bindParam(':role', $role);
+        return $stmt->execute();
+    }
+    
+    /** Elimina todos los miembros */
+    public function clearMembers($project_id) {
+        $stmt = $this->conn->prepare("
+            DELETE FROM project_members WHERE project_id = :pid
+        ");
+        $stmt->bindParam(':pid', $project_id, PDO::PARAM_INT);
+        return $stmt->execute();
+    }
+    
+    /** Obtiene miembros del equipo */
+    public function getTeamMembers($project_id) {
+        $stmt = $this->conn->prepare("
+            SELECT pm.*, u.full_name, u.email
+            FROM project_members pm
+            JOIN users u ON pm.user_id = u.id
+            WHERE pm.project_id = :pid
+        ");
+        $stmt->bindParam(':pid', $project_id, PDO::PARAM_INT);
+        $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+    
+    /**
+     * Formatea fechas, presupuesto y extrae iniciales de equipo
+     */
+    private function formatProjects(array $rows): array {
+        foreach ($rows as &$project) {
+            // Fecha
+            if (!empty($project['start_date'])) {
+                $project['start_date'] = date('d/m/Y', strtotime($project['start_date']));
+            }
+            if (!empty($project['end_date'])) {
+                $project['end_date'] = date('d/m/Y', strtotime($project['end_date']));
+            }
+            // Presupuesto
+            $project['budget_formatted'] = number_format($project['budget'], 2, ',', '.') . '€';
+            // Extract initials for a quick display (si antes cargaste team members)
+            if (isset($project['team']) && is_array($project['team'])) {
+                $project['team_initials'] = array_map(function($m){
+                    return strtoupper(substr($m['full_name'],0,1));
+                }, $project['team']);
+            }
+        }
+        return $rows;
+    }
 }
-?>

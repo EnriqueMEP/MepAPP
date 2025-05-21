@@ -30,3 +30,7 @@ define('IMG_URL', BASE_URL . 'assets/img/');
 // Zona horaria por defecto
 // -------------------------------------------------
 date_default_timezone_set('Europe/Madrid');
+
+// config/app.php (añade al final)
+define('CORPORATE_PRIMARY', '#006A4E');    // verde MEP
+define('CORPORATE_PRIMARY_DARK', '#00503B');

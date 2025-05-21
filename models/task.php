@@ -19,8 +19,57 @@ class Task {
     public $created_at;
     public $updated_at;
     
-    public function __construct($db) {
+    public function __construct(PDO $db) {
         $this->conn = $db;
+    }
+    
+    /**
+     * Devuelve tareas de un usuario por estado
+     */
+    public function readByStatus(int $userId, string $status): array {
+        $sql = "
+          SELECT
+            t.*,
+            p.name    AS project_name,
+            u1.full_name AS assigned_to_name,
+            u2.full_name AS created_by_name
+          FROM {$this->table} t
+          LEFT JOIN projects p ON t.project_id   = p.id
+          LEFT JOIN users    u1 ON t.assigned_to  = u1.id
+          LEFT JOIN users    u2 ON t.created_by   = u2.id
+          WHERE t.assigned_to = :userId
+            AND t.status      = :status
+          ORDER BY t.due_date ASC
+        ";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':userId', $userId, PDO::PARAM_INT);
+        $stmt->bindParam(':status', $status);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Lee una tarea por su ID
+     */
+    public function readSingle(int $id): ?array {
+        $sql = "
+          SELECT
+            t.*,
+            p.name    AS project_name,
+            u1.full_name AS assigned_to_name,
+            u2.full_name AS created_by_name
+          FROM {$this->table} t
+          LEFT JOIN projects p ON t.project_id   = p.id
+          LEFT JOIN users    u1 ON t.assigned_to  = u1.id
+          LEFT JOIN users    u2 ON t.created_by   = u2.id
+          WHERE t.id = :id
+          LIMIT 1
+        ";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
     }
     
     // Obtener todas las tareas

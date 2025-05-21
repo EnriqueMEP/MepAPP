@@ -82,13 +82,14 @@ include_once 'views/layout_header.php';
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                        <?php 
-                        $tareasFiltered = array_filter($tareas, function($tarea) {
-                            return $tarea['status'] === 'pendiente';
-                        });
-                        
-                        foreach ($tareasFiltered as $tarea): 
-                        ?>
+                   <?php if (count($pendientes)): ?>
+  <?php foreach ($pendientes as $tarea): ?>
+    <!-- fila de tarea -->
+  <?php endforeach; ?>
+<?php else: ?>
+  <tr>… “No hay tareas pendientes” …</tr>
+<?php endif; ?>
+
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <a href="index.php?controller=tasks&action=view&id=<?php echo $tarea['id']; ?>" class="text-mep-primary hover:text-mep-primary-dark font-medium"><?php echo $tarea['title']; ?></a>

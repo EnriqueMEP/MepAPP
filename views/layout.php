@@ -15,7 +15,7 @@
 <body class="bg-gray-100 min-h-screen flex flex-col">
 
   <!-- Header -->
-  <header class="bg-blue-800 text-white shadow-md">
+  <header class="bg-green-800 text-white shadow-md">
     <div class="container mx-auto px-4 py-3 flex justify-between items-center">
       <a href="<?= BASE_URL ?>index.php?controller=dashboard&action=index" class="text-xl font-bold"><?= APP_NAME ?></a>
       <nav class="space-x-6">
@@ -40,7 +40,7 @@
         </div>
         <!-- Usuario -->
         <div class="relative group">
-          <button class="flex items-center space-x-2 bg-blue-700 px-3 py-1 rounded-md">
+          <button class="flex items-center space-x-2 bg-green-700 px-3 py-1 rounded-md">
             <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center font-semibold">
               <?= strtoupper(substr($_SESSION['user_name'],0,1)) ?>
             </div>
@@ -64,7 +64,7 @@
   <footer class="bg-white py-4 border-t border-gray-200">
     <div class="container mx-auto px-4 flex justify-between text-sm text-gray-500">
       <div>© <?= date('Y') ?> <?= APP_NAME ?>. Todos los derechos reservados.</div>
-      <div>v<?= APP_VERSION ?> | <a href="#" class="text-blue-600 hover:underline">Soporte</a> | <a href="#" class="text-blue-600 hover:underline">Documentación</a></div>
+      <div>v<?= APP_VERSION ?> | <a href="#" class="text-green-600 hover:underline">Soporte</a> | <a href="#" class="text-green-600 hover:underline">Documentación</a></div>
     </div>
   </footer>
 

@@ -1,18 +1,30 @@
-<div class="p-6">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900">ERP</h1>
-            <p class="text-sm text-gray-600 mt-1">Facturación y finanzas</p>
-        </div>
-        <div class="mt-4 md:mt-0">
-            <button class="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center justify-center">
-                <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
-                Nueva Factura
-            </button>
-        </div>
-    </div>
-    
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <p>Módulo ERP en desarrollo. Próximamente disponible.</p>
-    </div>
-</div>
+<?php
+// views/erp/index.php
+// $invoices contiene id, customer, amount, created_at
+?>
+<h1 class="text-2xl font-bold mb-4"><?= htmlspecialchars($title) ?></h1>
+
+<table class="min-w-full bg-white shadow rounded">
+  <thead class="bg-gray-100">
+    <tr>
+      <th class="px-4 py-2">ID</th>
+      <th class="px-4 py-2">Cliente</th>
+      <th class="px-4 py-2">Importe</th>
+      <th class="px-4 py-2">Fecha</th>
+    </tr>
+  </thead>
+  <tbody>
+    <?php if (empty($invoices)): ?>
+      <tr><td colspan="4" class="px-4 py-2 text-center text-gray-500">No hay facturas aún.</td></tr>
+    <?php else: ?>
+      <?php foreach($invoices as $inv): ?>
+        <tr class="border-t">
+          <td class="px-4 py-2"><?= $inv['id'] ?></td>
+          <td class="px-4 py-2"><?= htmlspecialchars($inv['customer']) ?></td>
+          <td class="px-4 py-2"><?= number_format($inv['amount'],2,',','.') ?>€</td>
+          <td class="px-4 py-2"><?= date('d/m/Y', strtotime($inv['created_at'])) ?></td>
+        </tr>
+      <?php endforeach; ?>
+    <?php endif; ?>
+  </tbody>
+</table>

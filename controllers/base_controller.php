@@ -49,46 +49,61 @@ class BaseController {
      * @param array  $data   Variables a extraer para la vista
      * @param string $layout Nombre de layout (archivo en views/, sin extensión)
      */
-    protected function render($view, $data = [], $layout = 'layout') {
-        try {
-            // Extraer datos como variables para la vista
-            extract($data);
+ protected function render($view, $data = [], $layout = 'layout') {
+    try {
+        // Extraer datos para la vista
+        extract($data);
 
-            // Generar contenido de la vista
-            ob_start();
-            include_once __DIR__ . "/../views/{$view}.php";
-            $content = ob_get_clean();
+        // Generar contenido de la vista
+        ob_start();
+        include_once __DIR__ . "/../views/{$view}.php";
+        $content = ob_get_clean();
 
-            // Notificaciones y contador de mensajes no leídos
-            $unread_count = 0;
-            $notifications = [];
+        // Inicializar notificaciones
+        $unread_count  = 0;
+        $notifications = [];
 
-            if (isset($_SESSION['user_id']) && file_exists(__DIR__ . '/../models/message.php')) {
-                require_once __DIR__ . '/../models/message.php';
-                $messageModel = new Message($this->db);
+        if (isset($_SESSION['user_id']) && file_exists(__DIR__ . '/../models/message.php')) {
+            require_once __DIR__ . '/../models/message.php';
+            $messageModel = new Message($this->db);
 
-                try {
-                    $unread_count = $messageModel->getUnreadCount($_SESSION['user_id']);
-                    $notifications = $messageModel->getRecentNotifications($_SESSION['user_id'], 5);
-                } catch (PDOException $e) {
-                    // Si la columna/tabla no existe o hay error en modelo
-                    $unread_count = 0;
-                    $notifications = [];
+            try {
+                // Recupera las conversaciones recientes
+                $convs = $messageModel->getRecentConversations((int)$_SESSION['user_id']);
+
+                // Cuenta total de mensajes no leídos (campo unread_count que retorna el método)
+                foreach ($convs as $c) {
+                    $unread_count += isset($c['unread_count']) ? (int)$c['unread_count'] : 0;
                 }
-            }
 
-            // Incluir layout final
-            include_once __DIR__ . "/../views/{$layout}.php";
-
-        } catch (Exception $e) {
-            // Mostrar mensaje de error en desarrollo
-            if (defined('APP_ENV') && APP_ENV === 'development') {
-                echo "<h2>Error en renderizado</h2>";
-                echo "<pre>" . $e->getMessage() . "</pre>";
-                echo "<pre>" . $e->getTraceAsString() . "</pre>";
-            } else {
-                echo "Ha ocurrido un error. Intenta más tarde.";
+                // Construye array de notificaciones (hasta 5)
+                foreach (array_slice($convs, 0, 5) as $c) {
+                    $notifications[] = [
+                        'type'    => 'chat',
+                        'title'   => $c['other_user_name'] ?? $c['full_name'],
+                        'content' => strlen($c['last_message']) > 30
+                                     ? substr($c['last_message'], 0, 30).'…'
+                                     : $c['last_message'],
+                        'time'    => $c['last_message_time'],
+                        'url'     => 'index.php?controller=chat&action=index&chat_id=' . $c['chat_id']
+                    ];
+                }
+            } catch (PDOException $e) {
+                // Si falla, mantenemos 0 y lista vacía
+                $unread_count  = 0;
+                $notifications = [];
             }
         }
+
+        // Incluir layout pasando $content, $unread_count y $notifications
+        include_once __DIR__ . "/../views/{$layout}.php";
+
+    } catch (Exception $e) {
+        if (defined('APP_ENV') && APP_ENV === 'development') {
+            echo "<h2>Error en renderizado</h2><pre>{$e->getMessage()}</pre><pre>{$e->getTraceAsString()}</pre>";
+        } else {
+            echo "Ha ocurrido un error. Intenta más tarde.";
+        }
     }
+}
 }

@@ -1,18 +1,28 @@
-<div class="p-6">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900">RRHH</h1>
-            <p class="text-sm text-gray-600 mt-1">Gestión de recursos humanos</p>
-        </div>
-        <div class="mt-4 md:mt-0">
-            <button class="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center justify-center">
-                <i data-lucide="plus" class="w-4 h-4 mr-2"></i>
-                Nuevo Empleado
-            </button>
-        </div>
-    </div>
-    
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <p>Módulo RRHH en desarrollo. Próximamente disponible.</p>
-    </div>
-</div>
+<?php
+// views/rrhh/index.php
+// $employees con id, full_name, department, active
+?>
+<h1 class="text-2xl font-bold mb-4"><?= htmlspecialchars($title) ?></h1>
+
+<table class="min-w-full bg-white shadow rounded">
+  <thead class="bg-gray-100">
+    <tr>
+      <th class="px-4 py-2">Nombre</th>
+      <th class="px-4 py-2">Departamento</th>
+      <th class="px-4 py-2">Activo</th>
+    </tr>
+  </thead>
+  <tbody>
+    <?php if (empty($employees)): ?>
+      <tr><td colspan="3" class="px-4 py-2 text-center text-gray-500">No hay empleados.</td></tr>
+    <?php else: ?>
+      <?php foreach($employees as $e): ?>
+        <tr class="border-t">
+          <td class="px-4 py-2"><?= htmlspecialchars($e['full_name']) ?></td>
+          <td class="px-4 py-2"><?= htmlspecialchars($e['department']) ?></td>
+          <td class="px-4 py-2"><?= $e['active'] ? 'Sí' : 'No' ?></td>
+        </tr>
+      <?php endforeach; ?>
+    <?php endif; ?>
+  </tbody>
+</table>

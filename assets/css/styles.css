@@ -1,5 +1,15 @@
 /* Estilos personalizados para MEP-Projects */
 
+/* al principio o al final de styles.css */
+:root {
+  --mep-primary: <?= CORPORATE_PRIMARY ?>;
+  --mep-primary-dark: <?= CORPORATE_PRIMARY_DARK ?>;
+}
+.bg-mep-primary          { background-color: var(--mep-primary) !important; }
+.hover\:bg-mep-primary-dark:hover { background-color: var(--mep-primary-dark) !important; }
+.text-mep-primary        { color: var(--mep-primary) !important; }
+
+
 /* Variables de color corporativas */
 :root {
     --mep-primary: #548235;        /* Verde corporativo principal */

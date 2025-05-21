@@ -1,13 +1,12 @@
 <?php
-class AuthController {
-    private $db;
-    private $user;
+// controllers/auth_controller.php
+require_once 'controllers/base_controller.php';
+
+class AuthController extends BaseController {
+    protected $user;
     
     public function __construct() {
-        // Inicializar base de datos
-        require_once 'config/database.php';
-        $database = new Database();
-        $this->db = $database->getConnection();
+        parent::__construct();
         
         // Inicializar modelo de usuario
         require_once 'models/user.php';
@@ -30,7 +29,6 @@ class AuthController {
                 // Intentar login
                 if($this->user->login($email, $password)) {
                     // Iniciar sesión
-                    session_start();
                     $_SESSION['user_id'] = $this->user->id;
                     $_SESSION['user_email'] = $this->user->email;
                     $_SESSION['user_name'] = $this->user->full_name;
@@ -46,13 +44,15 @@ class AuthController {
         }
         
         // Cargar vista
-        include_once 'views/auth/login.php';
+        $this->render('auth/login', [
+            'error' => $error,
+            'title' => 'Iniciar Sesión'
+        ], 'layout_auth');
     }
     
     // Método para registro (sólo accesible a administradores)
     public function register() {
         // Verificar si el usuario está logueado y es admin
-        session_start();
         if(!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
             header('Location: index.php?controller=auth&action=login');
             exit;
@@ -85,13 +85,15 @@ class AuthController {
         }
         
         // Cargar vista
-        include_once 'views/auth/register.php';
+        $this->render('auth/register', [
+            'error' => $error,
+            'success' => $success,
+            'title' => 'Registrar Usuario'
+        ]);
     }
     
     // Método para cerrar sesión
     public function logout() {
-        session_start();
-        
         // Destruir todas las variables de sesión
         $_SESSION = array();
         
@@ -106,7 +108,6 @@ class AuthController {
     // Método para listar usuarios (sólo admin)
     public function users() {
         // Verificar si el usuario está logueado y es admin
-        session_start();
         if(!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
             header('Location: index.php?controller=auth&action=login');
             exit;
@@ -117,13 +118,15 @@ class AuthController {
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         // Cargar vista
-        include_once 'views/auth/users.php';
+        $this->render('auth/users', [
+            'users' => $users,
+            'title' => 'Gestión de Usuarios'
+        ]);
     }
     
     // Método para editar usuario
     public function edit() {
         // Verificar si el usuario está logueado y es admin
-        session_start();
         if(!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
             header('Location: index.php?controller=auth&action=login');
             exit;
@@ -194,13 +197,17 @@ class AuthController {
         }
         
         // Cargar vista
-        include_once 'views/auth/edit.php';
+        $this->render('auth/edit', [
+            'error' => $error,
+            'success' => $success,
+            'user_data' => $user_data,
+            'title' => 'Editar Usuario'
+        ]);
     }
     
     // Método para eliminar usuario
     public function delete() {
         // Verificar si el usuario está logueado y es admin
-        session_start();
         if(!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
             header('Location: index.php?controller=auth&action=login');
             exit;

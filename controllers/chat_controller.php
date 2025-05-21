@@ -1,187 +1,147 @@
 <?php
-class ChatController {
-    private $db;
-    private $user;
+// controllers/chat_controller.php
+require_once 'controllers/base_controller.php';
+
+class ChatController extends BaseController {
+    private $message;
     
     public function __construct() {
-        // Inicializar base de datos
-        require_once 'config/database.php';
-        $database = new Database();
-        $this->db = $database->getConnection();
+        parent::__construct();
         
-        // Inicializar modelo de usuario
-        require_once 'models/user.php';
-        $this->user = new User($this->db);
-        
-        // Verificar si el usuario está autenticado
-        session_start();
-        if(!isset($_SESSION['user_id'])) {
-            header('Location: index.php?controller=auth&action=login');
-            exit;
-        }
+        // Cargar modelo de mensajes
+        require_once 'models/message.php';
+        $this->message = new Message($this->db);
     }
     
-    // Método principal - Vista del chat
     public function index() {
-        // Obtener todos los usuarios para la lista de contactos
-        $stmt = $this->user->read();
-        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Verificar permisos
+        $this->requirePermission('chat', 'read');
         
-        // Filtrar el usuario actual de la lista
-        $contacts = array_filter($users, function($user) {
-            return $user['id'] != $_SESSION['user_id'];
-        });
+        // Obtener todos los usuarios para la lista de chat
+        require_once 'models/user.php';
+        $userModel = new User($this->db);
+        $users = $userModel->read()->fetchAll(PDO::FETCH_ASSOC);
         
-        // Simulación de chats recientes
-        $chats_recientes = [
-            [
-                'user_id' => 2,
-                'name' => 'Ana López',
-                'message' => 'Hola, ¿cómo va el proyecto?',
-                'time' => '10:30',
-                'unread' => 2,
-                'status' => 'online',
-                'avatar' => 'AL'
-            ],
-            [
-                'user_id' => 3,
-                'name' => 'Carlos Gómez',
-                'message' => 'Ya te envié los archivos por correo',
-                'time' => 'Ayer',
-                'unread' => 0,
-                'status' => 'offline',
-                'avatar' => 'CG'
-            ],
-            [
-                'user_id' => 4,
-                'name' => 'María Rodríguez',
-                'message' => 'Necesitamos hablar del presupuesto',
-                'time' => 'Lun',
-                'unread' => 1,
-                'status' => 'online',
-                'avatar' => 'MR'
-            ],
-            [
-                'user_id' => 5,
-                'name' => 'Pedro Sánchez',
-                'message' => 'Revisando los últimos cambios...',
-                'time' => '24/04',
-                'unread' => 0,
-                'status' => 'offline',
-                'avatar' => 'PS'
-            ]
-        ];
+        // Obtener conversaciones recientes
+        $conversations = $this->message->getRecentConversations($_SESSION['user_id']);
         
-        // Simulación de mensajes para una conversación
-        $active_chat = isset($_GET['user_id']) ? intval($_GET['user_id']) : 2;
-        
-        // Encontrar el chat activo
-        $active_chat_user = null;
-        foreach ($chats_recientes as $chat) {
-            if ($chat['user_id'] == $active_chat) {
-                $active_chat_user = $chat;
-                break;
-            }
-        }
-        
-        if (!$active_chat_user && !empty($contacts)) {
-            $contact = reset($contacts);
-            $active_chat_user = [
-                'user_id' => $contact['id'],
-                'name' => $contact['full_name'],
-                'status' => 'offline',
-                'avatar' => implode('', array_map(function($n) { return strtoupper($n[0]); }, explode(' ', $contact['full_name'])))
-            ];
-        }
-        
-        // Mensajes de ejemplo para la conversación
-        $mensajes = [
-            [
-                'user_id' => $active_chat,
-                'message' => 'Hola, ¿cómo estás?',
-                'time' => '10:15',
-                'is_mine' => false
-            ],
-            [
-                'user_id' => $_SESSION['user_id'],
-                'message' => 'Hola! Todo bien, trabajando en el proyecto de MEP-2025. ¿Y tú?',
-                'time' => '10:17',
-                'is_mine' => true
-            ],
-            [
-                'user_id' => $active_chat,
-                'message' => 'También, estoy revisando los documentos que me enviaste ayer.',
-                'time' => '10:20',
-                'is_mine' => false
-            ],
-            [
-                'user_id' => $_SESSION['user_id'],
-                'message' => 'Perfecto. ¿Has podido revisar el apartado de presupuestos?',
-                'time' => '10:22',
-                'is_mine' => true
-            ],
-            [
-                'user_id' => $active_chat,
-                'message' => 'Sí, me parece correcto. Aunque tengo algunas dudas sobre la implementación del módulo CRM.',
-                'time' => '10:25',
-                'is_mine' => false
-            ],
-            [
-                'user_id' => $_SESSION['user_id'],
-                'message' => 'Claro, podemos agendar una reunión para discutirlo en detalle. ¿Te parece bien mañana a las 11:00?',
-                'time' => '10:28',
-                'is_mine' => true
-            ],
-            [
-                'user_id' => $active_chat,
-                'message' => 'Perfecto, me viene bien. Lo agendaré en mi calendario.',
-                'time' => '10:30',
-                'is_mine' => false
-            ],
-        ];
-        
-        // Título de la página
-        $title = "Chat Interno";
-        
-        // Cargar la vista
-        include_once 'views/chat/index.php';
+        // Renderizar vista de chat
+        $this->render('chat/index', [
+            'title' => 'Chat',
+            'users' => $users,
+            'conversations' => $conversations,
+            'current_user_id' => $_SESSION['user_id']
+        ]);
     }
     
-    // Método para enviar un mensaje (simulado)
-    public function send() {
-        // Verificar si se envió un mensaje
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['message'])) {
-            $to_user_id = isset($_POST['to_user_id']) ? intval($_POST['to_user_id']) : 0;
-            $message = trim($_POST['message']);
-            
-            // En una implementación real, aquí guardaríamos el mensaje en la base de datos
-            
-            // Redirigir de vuelta al chat con el usuario
-            header("Location: index.php?controller=chat&user_id={$to_user_id}");
+    public function conversation() {
+        // Verificar permisos
+        $this->requirePermission('chat', 'read');
+        
+        // Obtener ID de usuario de la consulta
+        $user_id = isset($_GET['user_id']) ? intval($_GET['user_id']) : 0;
+        
+        if(!$user_id) {
+            header('Location: index.php?controller=chat');
             exit;
         }
         
-        // Si no se envió un mensaje, redirigir a la vista principal del chat
-        header('Location: index.php?controller=chat');
+        // Obtener detalles del usuario
+        require_once 'models/user.php';
+        $userModel = new User($this->db);
+        $userModel->id = $user_id;
+        $userModel->read_single();
+        
+        // Obtener mensajes entre usuarios
+        $messages = $this->message->getConversation($_SESSION['user_id'], $user_id);
+        
+        // Marcar mensajes como leídos
+        $this->message->markAsRead($user_id, $_SESSION['user_id']);
+        
+        // Obtener todos los usuarios para la lista de chat
+        $users = $userModel->read()->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Obtener conversaciones recientes
+        $conversations = $this->message->getRecentConversations($_SESSION['user_id']);
+        
+        // Renderizar vista de conversación
+        $this->render('chat/conversation', [
+            'title' => 'Chat con ' . $userModel->full_name,
+            'users' => $users,
+            'conversations' => $conversations,
+            'messages' => $messages,
+            'chat_user' => [
+                'id' => $userModel->id,
+                'full_name' => $userModel->full_name,
+                'email' => $userModel->email
+            ],
+            'current_user_id' => $_SESSION['user_id']
+        ]);
+    }
+    
+    public function send() {
+        // Verificar permisos
+        $this->requirePermission('chat', 'write');
+        
+        // Solo manejar peticiones POST
+        if($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: index.php?controller=chat');
+            exit;
+        }
+        
+        // Verificar parámetros requeridos
+        if(empty($_POST['recipient_id']) || empty($_POST['message'])) {
+            header('Location: index.php?controller=chat');
+            exit;
+        }
+        
+        // Establecer propiedades del mensaje
+        $this->message->sender_id = $_SESSION['user_id'];
+        $this->message->recipient_id = intval($_POST['recipient_id']);
+        $this->message->content = htmlspecialchars($_POST['message']);
+        $this->message->created_at = date('Y-m-d H:i:s');
+        $this->message->is_read = 0;
+        
+        // Guardar mensaje
+        if($this->message->create()) {
+            header('Location: index.php?controller=chat&action=conversation&user_id=' . $this->message->recipient_id);
+        } else {
+            // Mostrar error
+            $error = "No se pudo enviar el mensaje.";
+            header('Location: index.php?controller=chat&action=conversation&user_id=' . $this->message->recipient_id . '&error=' . urlencode($error));
+        }
         exit;
     }
     
-    // Método para crear un nuevo chat (simulado)
-    public function new_chat() {
-        // Obtener todos los usuarios para seleccionar
-        $stmt = $this->user->read();
-        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Endpoint AJAX para obtener nuevos mensajes
+    public function check_new() {
+        // Verificar permisos
+        $this->requirePermission('chat', 'read');
         
-        // Filtrar el usuario actual de la lista
-        $contacts = array_filter($users, function($user) {
-            return $user['id'] != $_SESSION['user_id'];
-        });
+        // Establecer cabecera de respuesta a JSON
+        header('Content-Type: application/json');
         
-        // Título de la página
-        $title = "Nuevo Chat";
+        // Obtener último ID de mensaje del cliente
+        $last_id = isset($_GET['last_id']) ? intval($_GET['last_id']) : 0;
+        $user_id = isset($_GET['user_id']) ? intval($_GET['user_id']) : 0;
         
-        // Cargar la vista
-        include_once 'views/chat/new.php';
+        if($user_id) {
+            // Obtener nuevos mensajes para la conversación
+            $messages = $this->message->getNewMessages($_SESSION['user_id'], $user_id, $last_id);
+            
+            // Marcar como leídos
+            $this->message->markAsRead($user_id, $_SESSION['user_id']);
+        } else {
+            // Verificar nuevos mensajes de cualquier usuario
+            $messages = $this->message->getNewMessagesForUser($_SESSION['user_id'], $last_id);
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'messages' => $messages,
+            'unread_count' => $this->message->getUnreadCount($_SESSION['user_id'])
+        ]);
+        exit;
     }
 }
 ?>

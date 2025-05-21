@@ -228,3 +228,83 @@
 .toast-info {
     border-left: 4px solid var(--mep-info);
 }
+
+/* Estilos personalizados para MEP-Projects */
+
+/* Variables de color */
+:root {
+    --mep-primary: green;
+    --mep-primary-dark: #0a8a0a;
+    --mep-secondary: #05B32B;
+    --mep-accent: #22c55e;
+    --mep-dark: #1f2937;
+    --mep-light: #f9fafb;
+}
+
+/* Clases de color para Tailwind (para usar con bg-mep-primary, text-mep-primary, etc.) */
+.bg-mep-primary {
+    background-color: var(--mep-primary);
+}
+
+.bg-mep-primary-dark {
+    background-color: var(--mep-primary-dark);
+}
+
+.bg-mep-secondary {
+    background-color: var(--mep-secondary);
+}
+
+.bg-mep-accent {
+    background-color: var(--mep-accent);
+}
+
+.text-mep-primary {
+    color: var(--mep-primary);
+}
+
+.text-mep-secondary {
+    color: var(--mep-secondary);
+}
+
+.text-mep-accent {
+    color: var(--mep-accent);
+}
+
+/* Transiciones suaves */
+.transition-all {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Efectos hover */
+.hover-shadow:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Estilo del scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c5c5c5;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Ocultar scrollbar para la barra de navegación móvil */
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* Internet Explorer y Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari, y Opera */
+}

@@ -1,15 +1,16 @@
 <?php
-class DashboardController {
-    private $database;
-    
+// controllers/dashboard_controller.php
+require_once 'controllers/base_controller.php';
+
+class DashboardController extends BaseController {
     public function __construct() {
-        // Inicializar conexión a la base de datos
-        require_once 'config/database.php';
-        $db = new Database();
-        $this->database = $db->getConnection();
+        parent::__construct();
     }
     
     public function index() {
+        // Verificar permisos
+        $this->requirePermission('dashboard', 'read');
+        
         // Datos para el dashboard (simulados por ahora)
         $stats = [
             'proyectos_activos' => 24,
@@ -70,10 +71,13 @@ class DashboardController {
             ]
         ];
         
-        // Establecer el título de la página
-        $title = "Dashboard";
-        
-        // Cargar la vista con layout
-        require_once 'views/layout.php';
+        // Renderizar vista
+        $this->render('dashboard/index', [
+            'title' => 'Dashboard',
+            'stats' => $stats,
+            'proyectos_recientes' => $proyectos_recientes,
+            'tareas_pendientes' => $tareas_pendientes
+        ]);
     }
 }
+?>
